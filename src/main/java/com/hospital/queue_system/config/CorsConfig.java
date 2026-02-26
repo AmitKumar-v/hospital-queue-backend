@@ -1,5 +1,7 @@
 package com.hospital.queue_system.config;
 
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -12,11 +14,10 @@ public class CorsConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:5173");
-        config.addAllowedOrigin("https://hospital-queue-frontend.vercel.app");
+        config.setAllowedOriginPatterns(Arrays.asList("*"));
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
-        config.setAllowCredentials(true);
+        config.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
