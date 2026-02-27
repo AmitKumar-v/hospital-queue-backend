@@ -7,6 +7,8 @@ public class DoctorRequest {
     private String name;
     private String specialization;
     private String departmentId;
-    private String email;       // For creating login account
-    private String password;    // For creating login account
+    private String email;
+    private String password;
+    private String availableFrom;
+    private String availableTo;
 }

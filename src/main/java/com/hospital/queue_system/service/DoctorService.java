@@ -28,24 +28,19 @@ public class DoctorService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // Get all active doctors
     public List<Doctor> getAllDoctors() {
         return doctorRepository.findByActiveTrue();
     }
 
-    // Get doctors by department
     public List<Doctor> getDoctorsByDepartment(String departmentId) {
         return doctorRepository.findByDepartmentIdAndActiveTrue(departmentId);
     }
 
-    // Create a new doctor (also creates login account)
     public Doctor createDoctor(DoctorRequest request) {
-
-        // Find the department first
-        Department dept = departmentRepository.findById(request.getDepartmentId())
+        Department department = departmentRepository.findById(request.getDepartmentId())
                 .orElseThrow(() -> new RuntimeException("Department not found"));
 
-        // Create a login account for the doctor
+        // Create login account
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
@@ -53,22 +48,40 @@ public class DoctorService {
         user.setRole("DOCTOR");
         User savedUser = userRepository.save(user);
 
-        // Create the doctor profile
+        // Create doctor profile
         Doctor doctor = new Doctor();
         doctor.setName(request.getName());
         doctor.setSpecialization(request.getSpecialization());
-        doctor.setDepartmentId(dept.getId());
-        doctor.setDepartmentName(dept.getName());
+        doctor.setDepartmentId(request.getDepartmentId());
+        doctor.setDepartmentName(department.getName());
         doctor.setUserId(savedUser.getId());
+        doctor.setEmail(request.getEmail());
+        doctor.setAvailable(true);
+        doctor.setAvailableFrom(request.getAvailableFrom() != null ? request.getAvailableFrom() : "09:00");
+        doctor.setAvailableTo(request.getAvailableTo() != null ? request.getAvailableTo() : "17:00");
 
         return doctorRepository.save(doctor);
     }
 
-    // Delete a doctor (soft delete)
-    public void deleteDoctor(String id) {
-        Doctor doctor = doctorRepository.findById(id)
+    public void deleteDoctor(String doctorId) {
+        Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
         doctor.setActive(false);
         doctorRepository.save(doctor);
+    }
+
+    public Doctor toggleAvailability(String doctorId) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+        doctor.setAvailable(!doctor.isAvailable());
+        return doctorRepository.save(doctor);
+    }
+
+    public Doctor updateTiming(String doctorId, String from, String to) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+        doctor.setAvailableFrom(from);
+        doctor.setAvailableTo(to);
+        return doctorRepository.save(doctor);
     }
 }

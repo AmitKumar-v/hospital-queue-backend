@@ -10,18 +10,14 @@ public class Doctor {
 
     @Id
     private String id;
-
-    private String name;            // Doctor's full name
-
-    private String specialization;  // e.g. "Cardiologist"
-
-    private String departmentId;    // Links to Department
-
-    private String departmentName;  // Stored for easy display
-
-    private String userId;          // Links to User account (for login)
-
+    private String name;
+    private String specialization;
+    private String departmentId;
+    private String departmentName;
+    private String userId;
+    private String email;
     private boolean available = true;
-
     private boolean active = true;
+    private String availableFrom = "09:00";
+    private String availableTo = "17:00";
 }
