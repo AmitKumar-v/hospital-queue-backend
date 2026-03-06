@@ -16,20 +16,15 @@ import java.util.List;
 @Service
 public class TokenService {
 
-    @Autowired
-    private TokenRepository tokenRepository;
-
-    @Autowired
-    private DoctorRepository doctorRepository;
-
-    @Autowired
-    private PatientRepository patientRepository;
+    @Autowired private TokenRepository tokenRepository;
+    @Autowired private DoctorRepository doctorRepository;
+    @Autowired private PatientRepository patientRepository;
 
     public Token generateToken(TokenRequest request) {
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
 
-        // Save patient
+        // Save patient record
         Patient patient = new Patient();
         patient.setName(request.getPatientName());
         patient.setPhone(request.getPatientPhone());
@@ -38,15 +33,21 @@ public class TokenService {
         patient.setProblem(request.getProblem());
         patientRepository.save(patient);
 
-        // Auto-increment: always get the highest token number + 1
+        // Auto-increment token number globally
         int lastTokenNumber = tokenRepository.findTopByOrderByTokenNumberDesc()
                 .map(Token::getTokenNumber).orElse(0);
         int tokenNumber = lastTokenNumber + 1;
 
-        // Count waiting patients for estimated wait time
+        // Estimated wait time
         long waitingCount = tokenRepository.countByDoctorIdAndStatus(
                 request.getDoctorId(), "WAITING");
         int estimatedWait = (int) waitingCount * 10;
+
+        // Set priority string and numeric order for sorting
+        String priority = (request.getPriority() != null && 
+                          !request.getPriority().isEmpty())
+                          ? request.getPriority() : "NORMAL";
+        int priorityOrder = priority.equals("EMERGENCY") ? 1 : 0;
 
         // Create token
         Token token = new Token();
@@ -59,7 +60,8 @@ public class TokenService {
         token.setDoctorName(doctor.getName());
         token.setDepartmentId(request.getDepartmentId());
         token.setDepartmentName(doctor.getDepartmentName());
-        token.setPriority(request.getPriority() != null ? request.getPriority() : "NORMAL");
+        token.setPriority(priority);
+        token.setPriorityOrder(priorityOrder);
         token.setStatus("WAITING");
         token.setCreatedAt(LocalDateTime.now());
         token.setEstimatedWaitMinutes(estimatedWait);
@@ -67,20 +69,15 @@ public class TokenService {
         return tokenRepository.save(token);
     }
 
-    // Returns WAITING tokens — EMERGENCY first, then by token number
     public List<Token> getDoctorQueue(String doctorId) {
         return tokenRepository.findWaitingByDoctorIdSorted(doctorId);
     }
 
-    // Call next patient — picks EMERGENCY first, then lowest token number
     public Token callNextPatient(String doctorId) {
         List<Token> waiting = tokenRepository.findWaitingByDoctorIdSorted(doctorId);
+        if (waiting.isEmpty()) throw new RuntimeException("No patients waiting");
 
-        if (waiting.isEmpty()) {
-            throw new RuntimeException("No patients waiting");
-        }
-
-        // First in list is always highest priority (emergency or lowest token number)
+        // First item is always highest priority — emergency or earliest token
         Token next = waiting.get(0);
         next.setStatus("IN_PROGRESS");
         return tokenRepository.save(next);
