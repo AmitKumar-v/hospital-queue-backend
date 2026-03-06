@@ -38,12 +38,12 @@ public class TokenService {
         patient.setProblem(request.getProblem());
         patientRepository.save(patient);
 
-        // Auto-increment token number from last token
+        // Auto-increment: always get the highest token number + 1
         int lastTokenNumber = tokenRepository.findTopByOrderByTokenNumberDesc()
                 .map(Token::getTokenNumber).orElse(0);
         int tokenNumber = lastTokenNumber + 1;
 
-        // Calculate estimated wait
+        // Count waiting patients for estimated wait time
         long waitingCount = tokenRepository.countByDoctorIdAndStatus(
                 request.getDoctorId(), "WAITING");
         int estimatedWait = (int) waitingCount * 10;
@@ -67,17 +67,20 @@ public class TokenService {
         return tokenRepository.save(token);
     }
 
+    // Returns WAITING tokens — EMERGENCY first, then by token number
     public List<Token> getDoctorQueue(String doctorId) {
-        return tokenRepository.findByDoctorIdAndStatusOrderByPriorityDescTokenNumberAsc(
-                doctorId, "WAITING");
+        return tokenRepository.findWaitingByDoctorIdSorted(doctorId);
     }
 
+    // Call next patient — picks EMERGENCY first, then lowest token number
     public Token callNextPatient(String doctorId) {
-        List<Token> waiting = tokenRepository
-                .findByDoctorIdAndStatusOrderByPriorityDescTokenNumberAsc(doctorId, "WAITING");
+        List<Token> waiting = tokenRepository.findWaitingByDoctorIdSorted(doctorId);
 
-        if (waiting.isEmpty()) throw new RuntimeException("No patients waiting");
+        if (waiting.isEmpty()) {
+            throw new RuntimeException("No patients waiting");
+        }
 
+        // First in list is always highest priority (emergency or lowest token number)
         Token next = waiting.get(0);
         next.setStatus("IN_PROGRESS");
         return tokenRepository.save(next);
@@ -97,6 +100,6 @@ public class TokenService {
     }
 
     public List<Token> getAllTokensForDoctor(String doctorId) {
-        return tokenRepository.findByDoctorIdOrderByPriorityDescTokenNumberAsc(doctorId);
+        return tokenRepository.findAllByDoctorIdSorted(doctorId);
     }
 }
