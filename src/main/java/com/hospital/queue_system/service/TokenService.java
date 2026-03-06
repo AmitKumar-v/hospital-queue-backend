@@ -33,18 +33,22 @@ public class TokenService {
         patient.setProblem(request.getProblem());
         patientRepository.save(patient);
 
-        // Auto-increment token number globally
-        int lastTokenNumber = tokenRepository.findTopByOrderByTokenNumberDesc()
-                .map(Token::getTokenNumber).orElse(0);
-        int tokenNumber = lastTokenNumber + 1;
+        // Token number per doctor — only count WAITING and IN_PROGRESS
+        // COMPLETED patients don't count so numbers reset after queue clears
+        long activeTokenCount = tokenRepository
+                .countByDoctorIdAndStatusIn(
+                    request.getDoctorId(), 
+                    List.of("WAITING", "IN_PROGRESS")
+                );
+        int tokenNumber = (int) activeTokenCount + 1;
 
-        // Estimated wait time
+        // Estimated wait = number of WAITING patients x 10 mins
         long waitingCount = tokenRepository.countByDoctorIdAndStatus(
                 request.getDoctorId(), "WAITING");
         int estimatedWait = (int) waitingCount * 10;
 
-        // Set priority string and numeric order for sorting
-        String priority = (request.getPriority() != null && 
+        // Priority
+        String priority = (request.getPriority() != null &&
                           !request.getPriority().isEmpty())
                           ? request.getPriority() : "NORMAL";
         int priorityOrder = priority.equals("EMERGENCY") ? 1 : 0;
@@ -76,8 +80,6 @@ public class TokenService {
     public Token callNextPatient(String doctorId) {
         List<Token> waiting = tokenRepository.findWaitingByDoctorIdSorted(doctorId);
         if (waiting.isEmpty()) throw new RuntimeException("No patients waiting");
-
-        // First item is always highest priority — emergency or earliest token
         Token next = waiting.get(0);
         next.setStatus("IN_PROGRESS");
         return tokenRepository.save(next);
