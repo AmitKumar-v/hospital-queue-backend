@@ -1,5 +1,11 @@
 package com.hospital.queue_system.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.hospital.queue_system.dto.TokenRequest;
 import com.hospital.queue_system.model.Doctor;
 import com.hospital.queue_system.model.Patient;
@@ -7,11 +13,6 @@ import com.hospital.queue_system.model.Token;
 import com.hospital.queue_system.repository.DoctorRepository;
 import com.hospital.queue_system.repository.PatientRepository;
 import com.hospital.queue_system.repository.TokenRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class TokenService {
@@ -24,7 +25,19 @@ public class TokenService {
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
 
-        // Save patient record
+        // COUNT FIRST before saving anything
+        long activeTokenCount = tokenRepository.countByDoctorIdAndStatusIn(
+                request.getDoctorId(),
+                List.of("WAITING", "IN_PROGRESS")
+        );
+        int tokenNumber = (int) activeTokenCount + 1;
+
+        // Estimated wait
+        long waitingCount = tokenRepository.countByDoctorIdAndStatus(
+                request.getDoctorId(), "WAITING");
+        int estimatedWait = (int) waitingCount * 10;
+
+        // NOW save patient after counting
         Patient patient = new Patient();
         patient.setName(request.getPatientName());
         patient.setPhone(request.getPatientPhone());
@@ -32,20 +45,6 @@ public class TokenService {
         patient.setGender(request.getPatientGender());
         patient.setProblem(request.getProblem());
         patientRepository.save(patient);
-
-        // Token number per doctor — only count WAITING and IN_PROGRESS
-        // COMPLETED patients don't count so numbers reset after queue clears
-        long activeTokenCount = tokenRepository
-                .countByDoctorIdAndStatusIn(
-                    request.getDoctorId(), 
-                    List.of("WAITING", "IN_PROGRESS")
-                );
-        int tokenNumber = (int) activeTokenCount + 1;
-
-        // Estimated wait = number of WAITING patients x 10 mins
-        long waitingCount = tokenRepository.countByDoctorIdAndStatus(
-                request.getDoctorId(), "WAITING");
-        int estimatedWait = (int) waitingCount * 10;
 
         // Priority
         String priority = (request.getPriority() != null &&
