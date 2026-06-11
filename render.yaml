@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: hospital-queue-backend
+    runtime: java
+    buildCommand: "./mvnw clean install -DskipTests"
+    startCommand: "java -jar target/queue-system-0.0.1-SNAPSHOT.jar"
+    envVars:
+      - key: SPRING_DATA_MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRATION
+        sync: false
